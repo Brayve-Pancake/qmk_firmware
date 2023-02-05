@@ -80,7 +80,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
         KC_Q,    KC_C,    KC_H,    KC_P,    KC_V,    KC_K,    KC_Y,    KC_O,    KC_J,    KC_QUOT,
         KC_R,    KC_S,    KC_N,    KC_T,    KC_G,    KC_W,    KC_U,    KC_E,    KC_A,    KC_I,
         KC_X,    KC_M,    KC_L,    KC_D,    KC_B,    KC_Z,    KC_F,    KC_COMM, KC_DOT,  KC_SLSH,
-                                   KC_SPC,  LA_NAV,  LA_SYM,  KC_LSFT
+                                   KC_SPC,  LA_NAV,  KC_LSFT, LA_SYM
     ),
 
     [SYM] = LAYOUT(
