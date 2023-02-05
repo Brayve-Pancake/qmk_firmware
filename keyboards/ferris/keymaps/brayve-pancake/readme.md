@@ -1,122 +1,99 @@
-A usable default keymap for the Ferris keyboard
-===============================================
+A keymap for 34 keys with 4 layers and no mod-tap.
 
-Keymaps in general are quite personal, so it is difficult to come up with a default that will suit every user.
+![](https://raw.githubusercontent.com/callum-oakley/keymap/master/keymap.svg)
 
-This keymap makes heavy use of keys behaving differently when tapped and held, so that all the keys one may need remain accessible despite the low number of thumb keys.
+## Details
 
-It comes with a number of layers to give access to most of the keys one may need on a keyboard. It is not meant to be the best possible keymap, but rather a good base on which to build a keymap that works for you.
+- Hold `sym` to activate the symbols layer.
+- Hold `nav` to activate the navigation layer.
+- Hold `sym` and `nav` together to activate the numbers layer.
+- The home row modifiers are oneshot so that it's possible to modify the
+  keys on the base layer, where there are no dedicated modifiers.
+- `swap win` sends `cmd-tab` for changing focus in macOS but holds `cmd`
+  between consecutive presses.
+- `swap lang` behaves similarly but sends `ctrl-space`, for changing input
+  language in macOS.
 
-This is not the only way to make 34 keys a comfortable typing experience, but it is one way to do so. If you don't already know of a better way, this may be as good a starting point as any :)
+## Oneshot modifiers
 
-Note that this keymap was built from the perspective that it is OK to take a steep learning curve if it results in a keymap that is easier to use in the long run. This means that it may take more effort to learn this keymap than some alternatives. "Easy to use" was assessed against the workflow of the author, so your mileage may vary on some of the details.
+The home row modifiers can either be held and used as normal, or if no other
+keys are pressed while a modifier is down, the modifier will be queued and
+applied to the next non-modifier keypress. For example to type `shift-cmd-t`,
+type `sym-o-n` (or `nav-a-t`), release, then hit `t`.
 
-What do all these layers do?
-----------------------------
+You can and should hit chords as fast as you like because there are no timers
+involved.
 
-### Layer 0: Base layer
+Cancel unused modifiers by tapping `nav` or `sym`.
 
-![Layer 0](https://i.imgur.com/HjNHUPL.png)
+### Userspace oneshot implementation
 
-On tapping the keys, our base layer is qwerty with space on the right homing thumb and backspace on the left homing thumb.
+For my usage patterns I was hitting stuck modifiers frequently with [`OSM`][]
+(maybe related to [#3963][]?). I'd like to try to help fix this in QMK proper,
+but implementing oneshot mods in userspace first was:
 
-In this layer, the non-homing-thumb positions have 0 and 1. I recommend modifying this to some frequently accessed shortcut such as copy/paste, previous/next tab or anything that makes most sense in your own workflow. O and 1 are place-holders and make it easy to troubleshoot that all keys are working properly before soldering in the switches.
-The reason I recommend convenience shortcuts instead of more commonly used keys like tab or meta is that unhoming of the thumbs was a frequent source of typos for me when I used more than one thumb key frequently in the context of typing.
+1. Fun.
+2. A good exploration of how I think oneshot mods should work without timers.
 
-Despite being missing on this layer, "meta", "tab", "esc" and such are accessible from any other layer: see Layer 7.
+So in the meantime, this [userspace oneshot implementation][] is working well
+for me.
 
-The behaviour of some keys differ when held:
-* Both homing pinkies behave as shift.
-* Both bottom-row ring fingers behave as ctrl.
-* Both bottom-row middle fingers behave as alt.
+## Swapper
 
-* The homing left ring finger gives access to the Function keys layer
-* The homing right ring finger gives access to the Numbers layer
-* The homing left middle finger gives access to the Mouse layer
-* The homing right middle finger gives access to the Navigation layer
-* The homing left index finger gives access to the Right symbols layer
-* The homing right index finger gives access to the Left symbols layer
-* The homing right thumb gives access to the Always accessible layer
+`swap win` sends `cmd-tab`, but holds `cmd` between consecutive keypresses.
+`cmd` is released when some other key is hit or released. For example
 
-### Layer 1: Mouse
+    nav down, swap win, swap win, nav up -> cmd down, tab, tab, cmd up
+    nav down, swap win, enter -> cmd down, tab, cmd up, enter
 
-![Layer 1](https://i.imgur.com/0fvTuB9.png)
+`swap lang` sends `ctrl-space` to swap input languages in macOS and behaves
+similarly.
 
-Layer 1 is a mouse layer: it can be used one-handed or two-handed. The most common way to use it is two handed, with left and right click on the homerow of the left hand and directions on the homerow of the right hand.
-Scrolling is available on the right hand with mid finger up and down for vertical scroll and index and ring finger down for horizontal scroll.
-On the right hand, left click and right click are also available with index and ring finger up to allow one handed operation. This can be particularly handy when enabling the mouse layer permanently (no need to hold the left middle finger), which can be done from Layer 7.
+[Swapper implementation.][]
 
-Note that thanks to the transparency, shift, ctrl and alt are all accessible on the left hand while operating the mouse.
+## Why no mod-tap?
 
-### Layer 2: Navigation
+[Mod-tap][] seems to be by far the most popular tool among users of tiny
+keyboards to answer the question of where to put the modifiers, and in the
+right hands it can clearly work brilliantly, but I've always found myself error
+prone and inconsistent with it.
 
-![Layer 2](https://i.imgur.com/ZquQJRq.png)
+With dedicated modifiers, there are three ways one might type `ctrl-c`:
 
-The navigation layer somewhat mirrors the mouse layer. It is accessed by holding the right middle finger and gives access to arrow keys on the left homerow. Page up and down, Home and End mirror the vertical scrolling and horizontal scrolling on the mouse layer.
+    ctrl down, ctrl up, c down, c up
+    ctrl down, c down, ctrl up, c up
+    ctrl down, c down, c up, ctrl up
 
-On the right hand, in addition to ctrl and alt which are available through transparency, ctrl + alt, ctrl + alt + shift and meta are accessible on the homerow to enable common shortcuts in some window managers. This part is quite workflow dependent, so make sure to adapt it to your own workflow as appropriate.
+Basically, you never have to worry about the keyups, as long as the keydowns
+occur in the correct order. Similarly, there are three ways one might type
+`ac`:
 
-### Layer 3: Right symbols
+    a down, a up, c down, c up
+    a down, c down, a up, c up
+    a down, c down, c up, a up
 
-![Layer 3](https://i.imgur.com/9tLAUqG.png)
+Replace `a` with `ctrl` and this is exactly what we had before! So if we want
+to put `a` and `ctrl` on the same key we have a problem, because without
+considering timing these sequences become ambiguous. So let's consider timing.
 
-When holding down the left index, one may access about half of the symbols. The pinkies store `^` and `$` symbols that represent begin and end in vim. The left homerow hosts `*` and `&`, symbols which are related in the way that they represent some form of indirection in programming languages such as rust. On the right hand, most symbols used when navigating the command line are stored together, organized by columns of related symbols. 
+The solution to the ambiguity that QMK employs is to configure the
+`TAPPING_TERM` and consider a key held rather than tapped if it is held for
+long enough. My problem with this is that it forces you to slow down to use
+modifiers. By its very nature the tapping term must be longer than the longest
+you would ever hold a key while typing on the slowest laziest Sunday afternoon.
+I'm not typing at 100% speed at all times, but when I am, having to think about
+timing and consciously slow down for certain actions never fails to trip me up.
 
-### Layer 4: Left symbols
+So alas, mod-tap is not for me -- but if it works for you, more power to you.
+:)
 
-![Layer 4](https://i.imgur.com/CkjUSW6.png)
+* * *
 
-When holding down the right index, one may access the other symbols. On the left hand, most of the different brackets are laid out. The most frequent ones (round brackets and curly brackets) get a spot on the homerow. The rest of the layer hosts the remaining symbols that are easier to access here than on any other layers.
+[My github][]
 
-### Layer 5: Function keys
-
-![Layer 5](https://i.imgur.com/fWgVqc4.png)
-
-By holding down the left ring finger, one may access the function keys, roughly in a numpad layout.
-This means that alt+F4 is easy to type, with F4 being on the homerow.
-There is a shortcut for ctrl+alt on the left hand to enable convenient switching between virtual terminals on Linux.
-
-### Layer 6: Numbers
-
-![Layer 6](https://i.imgur.com/S8gq9Kj.png)
-
-The number layer is accessed by holding the right ring finger. It hosts the numbers and some duplicated symbols that are commonly accessed next to numbers, such as mathematical operators.
-The number are layed out similarly to a numpad, but with the middle row and the homerow swapped so that the most used numbers: 0, 1, 2 and 3 are all available in homing positions. 
-
-### Layer 7: Always accessible
-
-![Layer 7](https://i.imgur.com/twqBeBb.png)
-
-Layer 7 is accessed by holding the right homing thumb down. Because this position is left transparent from every other layer, this layer is always accessible.
-It gives access to some essential keys that would typically be accessed on a thumb cluster or pinkies, such as meta, enter, tab, esc and delete.
-
-As the layer hosting esc, we duplicated some symbols here to allow for fast navigation in vim. For instance, esc, :, w, q can be done in a single roll.
-
-Where is the keymap.c?
-----------------------
-
-The keymap.c file is not published to the repository. It is generated from `keymap.json` by the build system.
-
-This avoids duplicating information and allow users to edit their keymap from the qmk configurator web interface.
-
-How do I edit and update the keymap?
-------------------------------------
-
-The `keymap.json` file is generated from the qmk configurator interface and formatted for better readability in the context of the Ferris keyboard.
-
-To edit it, you may:
-* Edit it directly from a text editor.
-* Edit it from the qmk configurator.
-
-If you decide to use the latter workflow, here are the steps to follow:
-
-* From the qmk configurator, hit the "import QMK keymap json file" button (it has a drawing with an up arrow on it).
-* Browse to the location of your keymap (for example, `<your qmk repo>/keyboards/ferris/keymaps/default/keymap.json`)
-* Perform any modification to the keymap in the web UI
-* Export the keymap to your downloads folder, by hitting the "Export QMK keymap json file" button (it has a drawing with a down arrow on it)
-* Override your original keymap with the output of formatting the exported keymap by running a command such as this one from the root of your qmk repo:
-  ```
-  ./keyboards/handwired/ferris/keymaps/json2crab.py --input <Your download directory>/default.json > ./keyboards/handwired/ferris/keymaps/default/keymap.json
-  ```
-  Note that you may first need to make json2crab executable by using `chmod +x` on it.
-  Also note that you may then want to remove the exported keymap from your dowload directory.
+[`OSM`]: /docs/one_shot_keys.md
+[#3963]: https://github.com/qmk/qmk_firmware/issues/3963
+[userspace oneshot implementation]: oneshot.c
+[swapper implementation.]: swapper.c
+[Mod-tap]: https://github.com/qmk/qmk_firmware/blob/master/docs/mod_tap.md
+[My github]: https://github.com/callum-oakley
