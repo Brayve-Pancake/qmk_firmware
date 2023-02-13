@@ -1,0 +1,6 @@
+{
+    "files.associations": {
+        "keymap_uk.h": "c",
+        "custom_shift_keys.h": "c"
+    }
+}

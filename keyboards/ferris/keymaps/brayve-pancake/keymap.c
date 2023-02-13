@@ -1,4 +1,10 @@
 #include QMK_KEYBOARD_H
+// #include "./custom_shift_keys.h"
+#include "./keymap_uk.h"
+// See guide on keymap_uk.h
+// https://github.com/qmk/qmk_firmware/blob/master/quantum/keymap_extras/keymap_uk.h
+
+// Check my github to use tapdance!
 
 // Implements cmd-tab like behaviour on a single key. On first tap of trigger
 // cmdish is held and tabish is tapped -- cmdish then remains held until some
@@ -45,6 +51,76 @@ bool is_oneshot_cancel_key(uint16_t keycode);
 // between layers.
 bool is_oneshot_ignored_key(uint16_t keycode);
 
+// Custom shift keys 
+typedef struct {
+  uint16_t keycode;
+  uint16_t shifted_keycode;
+} custom_shift_key_t;
+
+extern const custom_shift_key_t custom_shift_keys[];
+extern uint8_t NUM_CUSTOM_SHIFT_KEYS;
+
+bool process_custom_shift_keys(uint16_t keycode, keyrecord_t *record);
+
+// https://getreuer.info/posts/keyboards/custom-shift-keys/index.html
+const custom_shift_key_t custom_shift_keys[] = {
+  {KC_QUOT , UK_DQUO}, // Shift ' is "
+};
+uint8_t NUM_CUSTOM_SHIFT_KEYS =
+    sizeof(custom_shift_keys) / sizeof(custom_shift_key_t);
+
+    bool process_custom_shift_keys(uint16_t keycode, keyrecord_t *record) {
+  static uint16_t registered_keycode = KC_NO;
+
+  // If a custom shift key is registered, then this event is either
+  // releasing it or manipulating another key at the same time. Either way,
+  // we release the currently registered key.
+  if (registered_keycode != KC_NO) {
+    unregister_code16(registered_keycode);
+    registered_keycode = KC_NO;
+  }
+
+  if (record->event.pressed) {  // Press event.
+    const uint8_t mods = get_mods();
+#ifndef NO_ACTION_ONESHOT
+    if ((mods | get_weak_mods() | get_oneshot_mods()) & MOD_MASK_SHIFT) {
+#else
+    if ((mods | get_weak_mods()) & MOD_MASK_SHIFT) {  // Shift is held.
+#endif  // NO_ACTION_ONESHOT
+      // Continue default handling if this is a tap-hold key being held.
+      if ((IS_QK_MOD_TAP(keycode) || IS_QK_LAYER_TAP(keycode)) &&
+          record->tap.count == 0) {
+        return true;
+      }
+
+      // Search for a custom shift key whose keycode is `keycode`.
+      for (int i = 0; i < NUM_CUSTOM_SHIFT_KEYS; ++i) {
+        if (keycode == custom_shift_keys[i].keycode) {
+          registered_keycode = custom_shift_keys[i].shifted_keycode;
+          if (IS_QK_MODS(registered_keycode) &&  // Should key be shifted?
+              (QK_MODS_GET_MODS(registered_keycode) & MOD_LSFT) != 0) {
+            register_code16(registered_keycode);  // If so, press directly.
+          } else {
+            // If not, cancel shift mods, press the key, and restore mods.
+            del_weak_mods(MOD_MASK_SHIFT);
+#ifndef NO_ACTION_ONESHOT
+            del_oneshot_mods(MOD_MASK_SHIFT);
+#endif  // NO_ACTION_ONESHOT
+            unregister_mods(MOD_MASK_SHIFT);
+            register_code16(registered_keycode);
+            set_mods(mods);
+          }
+          return false;
+        }
+      }
+    }
+  }
+
+  return true;  // Continue with default handling.
+}
+
+// CUSTOM SHIFT KEYS END
+
 
 #define HOME G(KC_LEFT)
 #define END G(KC_RGHT)
@@ -79,21 +155,21 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     [DEF] = LAYOUT(
         KC_Q,    KC_C,    KC_H,    KC_P,    KC_V,    KC_K,    KC_Y,    KC_O,    KC_J,    KC_QUOT,
         KC_R,    KC_S,    KC_N,    KC_T,    KC_G,    KC_W,    KC_U,    KC_E,    KC_A,    KC_I,
-        KC_X,    KC_M,    KC_L,    KC_D,    KC_B,    KC_Z,    KC_F,    KC_COMM, KC_DOT,  KC_SLSH,
+        KC_X,    KC_M,    KC_L,    KC_D,    KC_B,    KC_Z,    KC_F,    KC_COMM, KC_DOT,  UK_SCLN,
                                    KC_SPC,  LA_NAV,  KC_LSFT, LA_SYM
     ),
 
     [SYM] = LAYOUT(
-        KC_ESC,  KC_LBRC, KC_LCBR, KC_LPRN, KC_TILD, KC_CIRC, KC_RPRN, KC_RCBR, KC_RBRC, KC_GRV,
-        KC_MINS, KC_ASTR, KC_EQL,  KC_UNDS, KC_DLR,  KC_HASH, OS_CMD,  OS_ALT,  OS_CTRL, OS_SHFT,
-        KC_PLUS, KC_PIPE, KC_AT,   KC_BSLS, KC_PERC, XXXXXXX, KC_AMPR, KC_SCLN, KC_COLN, KC_EXLM,
+        KC_ESC,  KC_LBRC, KC_LCBR, KC_LPRN, UK_TILD, UK_CIRC, KC_RPRN, KC_RCBR, KC_RBRC, UK_GRV,
+        KC_MINS, UK_ASTR, KC_EQL,  KC_UNDS, KC_DLR,  UK_HASH, OS_CMD,  OS_ALT,  OS_CTRL, OS_SHFT,
+        KC_PLUS, UK_PIPE, UK_AT,   UK_SLSH, UK_PERC, XXXXXXX, UK_BSLS, UK_AMPR, UK_QUES, KC_EXLM,
                                    _______, _______, _______, _______
     ),
 
     [NAV] = LAYOUT(
-        KC_TAB,  SW_WIN,  TABL,    TABR,    KC_VOLU, QK_BOOT, HOME,    KC_UP,   END,     KC_DEL,
-        OS_SHFT, OS_CTRL, OS_ALT,  OS_CMD,  KC_VOLD, KC_CAPS, KC_LEFT, KC_DOWN, KC_RGHT, KC_BSPC,
-        SPCL,    SPC_R,   BACK,    FWD,     KC_MPLY, XXXXXXX, KC_PGDN, KC_PGUP, SW_LANG, KC_ENT,
+        KC_TAB,  SW_WIN,  TABL,    TABR,    KC_VOLU, QK_BOOT, HOME,    KC_UP,   END,     KC_BSPC,
+        OS_SHFT, OS_CTRL, OS_ALT,  OS_CMD,  KC_VOLD, KC_CAPS, KC_LEFT, KC_DOWN, KC_RGHT, KC_ENT,
+        SPCL,    SPC_R,   BACK,    FWD,     KC_MPLY, XXXXXXX, KC_PGDN, KC_PGUP, SW_LANG, KC_DEL,
                                    _______, _______, _______, _______
     ),
 
@@ -221,6 +297,10 @@ oneshot_state os_alt_state = os_up_unqueued;
 oneshot_state os_cmd_state = os_up_unqueued;
 
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
+    // Custom SHIFT START
+      if (!process_custom_shift_keys(keycode, record)) { return false; }
+    // Custom SHIFT end
+
     update_swapper(
         &sw_win_active, KC_LGUI, KC_TAB, SW_WIN,
         keycode, record
